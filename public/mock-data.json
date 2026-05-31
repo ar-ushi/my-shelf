@@ -1,0 +1,12 @@
+{
+  "source": "storygraph",
+  "periodLabel": "All time",
+  "books": [
+    {
+      "id": "mock-1",
+      "title": "Placeholder Book",
+      "author": "Sample Author",
+      "rating": 4
+    }
+  ]
+}
