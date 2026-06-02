@@ -1,10 +1,26 @@
-export function SourceBar() {
+import Link from "next/link";
+
+import { SOURCE_LABELS, type Source } from "@/lib/types";
+
+type SourceBarProps = {
+  source?: Source;
+};
+
+export function SourceBar({ source }: SourceBarProps) {
   return (
-    <section className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
-      <p className="text-sm font-medium text-zinc-900">SourceBar</p>
-      <p className="text-sm text-zinc-500">
-        Placeholder for storygraph / csv / spreadsheet switching.
-      </p>
+    <section className="flex flex-wrap items-center gap-2 rounded-2xl bg-moss/12 px-4 py-2.5">
+      <span className="text-[11px] uppercase tracking-[0.08em] text-deep">
+        source
+      </span>
+      <span className="rounded-full bg-ink px-3 py-1 text-xs font-medium text-paper">
+        {source ? SOURCE_LABELS[source] : "sample"}
+      </span>
+      <Link
+        href="/"
+        className="ml-auto text-xs text-deep transition-colors hover:text-ink"
+      >
+        upload a different export →
+      </Link>
     </section>
   );
 }

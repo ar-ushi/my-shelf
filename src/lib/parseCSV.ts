@@ -1,11 +1,18 @@
-import type { ShelfData } from "@/lib/types";
+import Papa from "papaparse";
 
-export function parseCSV(_input: string): ShelfData {
-  void _input;
+import type { ShelfData, Source } from "@/lib/types";
+import { normaliseGoodreadsCSV, normaliseStorygraphCSV } from "@/lib/normalise";
 
-  return {
-    source: "csv",
-    books: [],
-    periodLabel: "All time",
-  };
+/** Parse a supported CSV export string into ShelfData (read books only). */
+export function parseCSV(csvText: string, source: Source): ShelfData {
+  const { data } = Papa.parse<Record<string, string>>(csvText, {
+    header: true,
+    skipEmptyLines: true,
+  });
+
+  if (source === "storygraph") {
+    return normaliseStorygraphCSV(data);
+  }
+
+  return normaliseGoodreadsCSV(data);
 }

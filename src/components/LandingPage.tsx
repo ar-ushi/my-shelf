@@ -23,19 +23,12 @@ const SPARKLES = [
 
 export function LandingPage() {
   const router = useRouter();
-  const [username, setUsername] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [source, setSource] = useState<Source>("goodreads");
 
   function goToShelf(source: Source, params: Record<string, string> = {}) {
     const query = new URLSearchParams({ source, ...params });
     router.push(`/shelf?${query.toString()}`);
-  }
-
-  function handleStorygraph(event: React.FormEvent) {
-    event.preventDefault();
-    const handle = username.trim();
-    if (!handle) return;
-    goToShelf("storygraph", { username: handle });
   }
 
   function handleCSV(event: React.ChangeEvent<HTMLInputElement>) {
@@ -45,13 +38,13 @@ export function LandingPage() {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        sessionStorage.setItem(CSV_DATA_KEY, String(reader.result ?? ""));
+        sessionStorage.setItem(CSV_DATA_KEY, reader.result as string);
         sessionStorage.setItem(CSV_NAME_KEY, file.name);
       } catch {
         // sessionStorage may be unavailable (private mode); the shelf can
         // still prompt for a re-upload, so we don't block navigation.
       }
-      goToShelf("csv");
+      goToShelf(source);
     };
     reader.readAsText(file);
   }
@@ -63,7 +56,7 @@ export function LandingPage() {
         background:
           "radial-gradient(900px circle at 15% 12%, var(--moss), transparent 45%)," +
           "radial-gradient(800px circle at 88% 98%, var(--rose), transparent 45%)," +
-          "radial-gradient(700px circle at 70% 95%, var(--deep), transparent 50%)," +
+          "radial-gradient(700px circle at 30% 95%, var(--deep), transparent 50%)," +
           "linear-gradient(160deg, var(--ink) 0%, var(--ink) 55%, var(--ink) 100%)",
       }}
     >
@@ -72,26 +65,25 @@ export function LandingPage() {
       <div className="pointer-events-none absolute -right-20 top-10 h-64 w-64 rounded-full bg-[#D3968C]/30 blur-3xl" />
       <div className="pointer-events-none absolute bottom-0 left-1/3 h-80 w-80 rounded-full bg-[#F7F4D5]/15 blur-3xl" />
 
-      {/* twinkling sparkles */}
-      {/* {SPARKLES.map((s, i) => (
+      {SPARKLES.map((sparkle) => (
         <span
-          key={i}
+          key={`${sparkle.top}-${sparkle.left}`}
           className="pointer-events-none absolute rounded-full bg-[#F7F4D5] animate-pulse"
           style={{
-            top: s.top,
-            left: s.left,
-            width: s.size,
-            height: s.size,
-            animationDelay: s.delay,
-            animationDuration: s.dur,
+            top: sparkle.top,
+            left: sparkle.left,
+            width: sparkle.size,
+            height: sparkle.size,
+            animationDelay: sparkle.delay,
+            animationDuration: sparkle.dur,
             boxShadow: "0 0 10px 2px rgba(247,244,213,0.7)",
           }}
         />
-      ))} */}
+      ))}
 
-      <div className="relative z-10 w-full max-w-md">
-        <header className="mb-8 text-center">
-          <h1 className="font-serif text-6xl font-normal tracking-tight text-rose drop-shadow-[0_2px_24px_rgba(247,244,213,0.35)]">
+      <div className="relative z-10 w-full max-w-2xl">
+          <header className="mb-8 text-center">
+          <h1 className="font-serif text-6xl font-normal tracking-tight text-rose drop-shadow-var(--moss)">
             my shelf
           </h1>
           <p className="mt-4 text-lg text-moss/90">
@@ -102,48 +94,36 @@ export function LandingPage() {
           </p>
         </header>
 
-        <section className="rounded-3xl border border-[#F7F4D5]/40 bg-[#F7F4D5]/95 p-7 shadow-[0_24px_70px_rgba(10,51,35,0.45)] backdrop-blur-md">
-          <form onSubmit={handleStorygraph}>
-            <label
-              htmlFor="storygraph-username"
-              className="mb-2 block text-xs font-semibold uppercase tracking-[0.12em] text-[#105666]"
-            >
-              got a storygraph account?
-            </label>
-            <input
-              id="storygraph-username"
-              type="text"
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-              placeholder="add your username to get started"
-              autoComplete="off"
-              className="w-full rounded-2xl border border-[#839958]/55 bg-white/70 px-4 py-3 text-sm text-[#0A3323] placeholder:text-[#839958] focus:border-[#105666] focus:outline-none focus:ring-2 focus:ring-[#105666]/25"
-            />
-            <button
-              type="submit"
-              disabled={!username.trim()}
-              className="mt-3 w-full rounded-2xl bg-[#0A3323] px-4 py-3 text-sm font-medium text-[#F7F4D5] shadow-sm transition-all hover:bg-[#105666] hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              build my shelf →
-            </button>
-          </form>
 
-          <div className="my-6 flex items-center gap-3 text-xs text-[#839958]">
-            <span className="h-px flex-1 bg-[#839958]/35" />
-            no storygraph? no problem
-            <span className="h-px flex-1 bg-[#839958]/35" />
-          </div>
-
+        <section className="rounded-3xl border border-ink/40 bg-paper/95 p-7 shadow-[0_24px_70px_var(--ink)] backdrop-blur-md sm:p-8">
+    
           <div className="text-center">
-            <p className="mb-3 text-sm text-[#105666]">
-              upload your goodreads export and we&rsquo;ll shelve it for you
+            <p className="mb-3 text-lg text-deep">
+              upload your library and we&rsquo;ll shelve it for you
             </p>
+            <div className="mx-auto mb-4 max-w-xs text-left">
+              <label
+                htmlFor="csv-source"
+                className="mb-2 block text-xs font-semibold  tracking-[0.12em] text-deep"
+              >
+                Which export is this?
+              </label>
+              <select
+                id="csv-source"
+                value={source}
+                onChange={(event) => setSource(event.target.value as Source)}
+                className="w-full rounded-2xl border border-moss/45 bg-white/70 px-4 py-3 text-sm text-ink focus:border-deep focus:outline-none focus:ring-2 focus:ring-deep/20"
+              >
+                <option value="goodreads">Goodreads</option>
+                <option value="storygraph">StoryGraph</option>
+              </select>
+            </div>
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="inline-flex items-center gap-2 rounded-2xl border border-[#D3968C] bg-[#D3968C]/15 px-5 py-2.5 text-sm font-medium text-[#0A3323] transition-colors hover:bg-[#D3968C]/30"
+              className="inline-flex items-center gap-2 rounded-2xl border border-rose bg-rose/15 px-5 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-rose/30"
             >
-             upload a .csv file
+              upload a .csv file
             </button>
             <input
               ref={fileInputRef}
@@ -152,11 +132,59 @@ export function LandingPage() {
               onChange={handleCSV}
               className="hidden"
             />
+
+          </div>
+
+          <div className="mt-6 grid gap-4 text-left sm:grid-cols-2">
+            <section className="rounded-2xl border border-ink/28 bg-white/45 p-4">
+              <h3 className="text-sm font-semibold text-deep">
+                Export Your Library · Goodreads
+              </h3>
+              <ol className="mt-3 list-inside list-decimal space-y-2 text-xs leading-5 text-deep/80 sm:text-sm">
+                <li>
+                  Go to <strong>My Books</strong>.
+                </li>
+                <li>
+                  In the left sidebar, scroll to{" "}
+                  <strong>Import and Export</strong>.
+                </li>
+                <li>
+                  Under <strong>Export Your Library</strong>, choose{" "}
+                  <strong>Export Library</strong>.
+                </li>
+                <li>
+                  Refresh until the <strong>Download CSV</strong> link appears,
+                  then upload that file here.
+                </li>
+              </ol>
+            </section>
+
+            <section className="rounded-2xl border border-moss/35 bg-moss/10 p-4">
+              <h3 className="text-sm font-semibold text-ink">
+                Export Your Library · StoryGraph
+              </h3>
+              <ol className="mt-3 list-inside list-decimal space-y-2 text-xs leading-5 text-ink/80 sm:text-sm">
+                <li>
+                  Open <strong>Manage Account</strong> from your profile menu.
+                </li>
+                <li>
+                  Scroll to the <strong>Import and Export</strong> section.
+                </li>
+                <li>
+                  Choose the option to <strong>export your data</strong> as a
+                  CSV file.
+                </li>
+                <li>
+                  Download the finished export, then upload the CSV here to
+                  build your shelf.
+                </li>
+              </ol>
+            </section>
           </div>
         </section>
 
         <p className="mt-6 text-center text-xs text-[#F7F4D5]/60">
-          phase 1 · storygraph &amp; goodreads csv
+          phase 1 · csv imports from your reading apps
         </p>
       </div>
     </main>

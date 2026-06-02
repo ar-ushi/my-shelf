@@ -4,9 +4,9 @@ import type { Source } from "@/lib/types";
 export default async function ShelfPage({
   searchParams,
 }: {
-  searchParams: Promise<{ source?: Source; username?: string }>;
+  searchParams: Promise<{ source?: Source }>;
 }) {
-  const { source, username } = await searchParams;
+  const { source } = await searchParams;
 
-  return <Shelf source={source} username={username} />;
+  return <Shelf source={source} />;
 }

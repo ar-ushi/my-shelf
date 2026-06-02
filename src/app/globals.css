@@ -5,7 +5,8 @@
   --moss: #839958;
   --paper: #fdfdf5;
   --rose: #d3968c;
-  --deep: #105666;
+  --deep: #3f8190;
+  --brown: #846ab3;
 }
 
 @theme inline {
@@ -16,6 +17,7 @@
   --color-paper: var(--paper);
   --color-rose: var(--rose);
   --color-deep: var(--deep);
+  --color-brown: var(--brown);
 }
 
 body {

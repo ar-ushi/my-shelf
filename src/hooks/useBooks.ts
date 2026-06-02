@@ -2,8 +2,14 @@
 
 import { useEffect, useState } from "react";
 
-import type { ShelfData } from "@/lib/types";
-import { fetchStorygraphBooks } from "@/lib/storygraph";
+import type { ShelfData, Source } from "@/lib/types";
+
+// Must match the key LandingPage writes the uploaded CSV text under.
+const CSV_DATA_KEY = "myshelf:csv";
+
+type UseBooksArgs = {
+  source?: Source;
+};
 
 type UseBooksResult = {
   data: ShelfData;
@@ -11,14 +17,8 @@ type UseBooksResult = {
   error: string | null;
 };
 
-const emptyShelf: ShelfData = {
-  source: "storygraph",
-  books: [],
-  periodLabel: "All time",
-};
-
-export function useBooks(): UseBooksResult {
-  const [data, setData] = useState<ShelfData>(emptyShelf);
+export function useBooks({ source }: UseBooksArgs = {}): UseBooksResult {
+  const [data, setData] = useState<ShelfData>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,20 +26,29 @@ export function useBooks(): UseBooksResult {
     let isMounted = true;
 
     async function loadBooks() {
-      try {
-        const nextData = await fetchStorygraphBooks();
+      setIsLoading(true);
+      setError(null);
 
-        if (isMounted) {
-          setData(nextData);
+      try {
+        let shelf: ShelfData = {};
+
+        if (source) {
+          const csv = sessionStorage.getItem(CSV_DATA_KEY) ?? "";
+          if (!csv) throw new Error("No CSV found — please upload it again.");
+          const res = await fetch(`/api/shelf?source=${encodeURIComponent(source)}`, {
+            method: "POST",
+            headers: { "Content-Type": "text/csv" },
+            body: csv,
+          });
+          if (!res.ok) throw new Error("Unable to read that CSV.");
+          shelf = await res.json();
         }
-      } catch {
-        if (isMounted) {
-          setError("Unable to load books.");
-        }
+
+        if (isMounted) setData(shelf);
+      } catch (caught) {
+        if (isMounted) setError((caught as Error).message);
       } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+        if (isMounted) setIsLoading(false);
       }
     }
 
@@ -48,7 +57,7 @@ export function useBooks(): UseBooksResult {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [source]);
 
   return { data, isLoading, error };
 }
