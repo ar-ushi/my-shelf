@@ -9,6 +9,11 @@ export type Book = {
   moods: string[]       // mood tags
   review: string
   cover: string         // URL or empty string
+  isbn?: string
+  series?: string[]
+  genres?: string[]
+  searchOnImport?: boolean
+  metadataChecked?: boolean
 }
 
 export type MonthKey = 'Jan'|'Feb'|'Mar'|'Apr'|'May'|'Jun'|'Jul'|'Aug'|'Sep'|'Oct'|'Nov'|'Dec'

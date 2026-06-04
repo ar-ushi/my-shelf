@@ -10,6 +10,21 @@ const SEARCH_URL = "https://openlibrary.org/search.json";
 // anything below this floor is treated as "no cover".
 const MIN_COVER_BYTES = 1000;
 
+type OpenLibraryDoc = {
+  cover_i?: number;
+  isbn?: string[];
+  number_of_pages_median?: number;
+  subject?: string[];
+  series?: string[];
+};
+
+type OpenLibraryMetadata = {
+  cover: string;
+  pages: number;
+  genres: string[];
+  series: string[];
+};
+
 /** Strip Goodreads' ="..." wrapper and separators, leaving the bare ISBN. */
 export function cleanISBN(value: string | undefined): string {
   return (value ?? "").replace(/[^0-9Xx]/g, "");
@@ -47,21 +62,81 @@ async function isRealCover(url: string): Promise<boolean> {
   }
 }
 
-/** Best-effort cover lookup by title/author via Open Library search. */
-async function searchCover(title: string, author: string): Promise<string> {
-  const params = new URLSearchParams({ title, limit: "1", fields: "cover_i" });
+function cleanFacetList(values: string[] | undefined, limit: number): string[] {
+  return Array.from(
+    new Set(
+      (values ?? [])
+        .map((value) => value.trim())
+        .filter((value) => value.length >= 3 && value.length <= 32)
+        .filter((value) => !/[0-9]{4}/.test(value))
+        .filter((value) => !/[()[\]{}]/.test(value)),
+    ),
+  ).slice(0, limit);
+}
+
+function mergeUnique(existing: string[] | undefined, next: string[]): string[] {
+  return Array.from(new Set([...(existing ?? []), ...next]));
+}
+
+function metadataFromDoc(doc: OpenLibraryDoc | undefined): OpenLibraryMetadata | null {
+  if (!doc) return null;
+
+  const cover = doc.cover_i
+    ? `${ID_COVER_BASE}/${doc.cover_i}-L.jpg?default=false`
+    : coverFromISBN(doc.isbn?.[0]);
+
+  return {
+    cover,
+    pages: Math.max(0, Number(doc.number_of_pages_median ?? 0)),
+    genres: cleanFacetList(doc.subject, 6),
+    series: cleanFacetList(doc.series, 3),
+  };
+}
+
+/** Best-effort Open Library lookup by title/author for cover + metadata. */
+export async function searchOpenLibrary(
+  title: string,
+  author: string,
+): Promise<OpenLibraryMetadata | null> {
+  const params = new URLSearchParams({
+    title,
+    limit: "1",
+    fields: "cover_i,isbn,number_of_pages_median,subject,series",
+  });
   if (author) params.set("author", author);
+
   try {
     const res = await fetch(`${SEARCH_URL}?${params.toString()}`, {
       headers: { Accept: "application/json" },
     });
-    if (!res.ok) return "";
+    if (!res.ok) return null;
+
     const json = await res.json();
-    const coverId = json?.docs?.[0]?.cover_i;
-    return coverId ? `${ID_COVER_BASE}/${coverId}-L.jpg?default=false` : "";
+    return metadataFromDoc(json?.docs?.[0]);
   } catch {
-    return "";
+    return null;
   }
+}
+
+export function applyOpenLibraryMetadata<T extends {
+  cover: string;
+  pages: number;
+  genres?: string[];
+  series?: string[];
+}>(
+  book: T,
+  metadata: OpenLibraryMetadata,
+): T {
+  return {
+    ...book,
+    pages: book.pages > 0 ? book.pages : metadata.pages,
+    genres: metadata.genres.length > 0
+      ? mergeUnique(book.genres, metadata.genres)
+      : (book.genres ?? []),
+    series: metadata.series.length > 0
+      ? mergeUnique(book.series, metadata.series)
+      : (book.series ?? []),
+  };
 }
 
 /** Run async work over items with a bounded concurrency. */
@@ -76,11 +151,11 @@ async function mapPool<T>(
 }
 
 /**
- * Resolve a real cover for every book, mutating and returning the shelf:
+ * Resolve covers during import, mutating and returning the shelf:
  *   1. Verify any ISBN-derived cover actually resolves to a real image;
  *      drop it if Open Library returned a blank/1x1 placeholder.
- *   2. For books left without a cover, fall back to Open Library search and
- *      verify that result the same way.
+ *   2. Only books marked in normalisation as lacking a cover are searched.
+ *      If that search happens, we opportunistically keep the extra metadata.
  */
 export async function enrichCoversFromOpenLibrary(
   shelf: ShelfData,
@@ -90,16 +165,26 @@ export async function enrichCoversFromOpenLibrary(
     .flat();
 
   await mapPool(books, 12, async (book) => {
+    book.series ??= [];
+    book.genres ??= [];
+    book.metadataChecked ??= false;
+
     // Validate the ISBN-derived candidate; clear it if it isn't a real cover.
     if (book.cover && !(await isRealCover(book.cover))) {
       book.cover = "";
+      book.searchOnImport = true;
     }
 
-    // Still uncovered (no ISBN, or its cover was blank) → try search.
-    if (!book.cover) {
-      const url = await searchCover(book.title, book.author);
-      if (url && (await isRealCover(url))) book.cover = url;
+    if (!book.searchOnImport) return;
+
+    const metadata = await searchOpenLibrary(book.title, book.author);
+    book.searchOnImport = false;
+    if (!metadata) return;
+
+    if (!book.cover && metadata.cover && (await isRealCover(metadata.cover))) {
+      book.cover = metadata.cover;
     }
+    Object.assign(book, applyOpenLibraryMetadata(book, metadata));
   });
 
   return shelf;

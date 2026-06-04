@@ -30,8 +30,14 @@ function Stars({ rating }: { rating: number }) {
   );
 }
 
+const THUMB_HEIGHT = 104;
+
 function CoverThumb({ book, color }: { book: Book; color: SpineColor }) {
   const [failed, setFailed] = useState(false);
+  // Width follows the cover's real aspect ratio so it fills the box edge to
+  // edge with no letterboxing or cropping.
+  const [aspect, setAspect] = useState(0.69);
+
   if (book.cover && !failed) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
@@ -39,13 +45,20 @@ function CoverThumb({ book, color }: { book: Book; color: SpineColor }) {
         src={book.cover}
         alt={book.title}
         onError={() => setFailed(true)}
-        className="h-full w-full object-cover"
+        onLoad={(e) => {
+          const img = e.currentTarget;
+          if (img.naturalWidth && img.naturalHeight) {
+            setAspect(img.naturalWidth / img.naturalHeight);
+          }
+        }}
+        className="block h-full w-auto rounded-[2px_5px_5px_2px] object-cover"
+        style={{ width: Math.round(THUMB_HEIGHT * aspect) }}
       />
     );
   }
   return (
     <div
-      className="flex h-full w-full items-center justify-center p-1.5 text-center text-[9px] font-medium leading-tight"
+      className="flex h-full w-[72px] items-center justify-center rounded-[2px_5px_5px_2px] p-1.5 text-center text-[9px] font-medium leading-tight"
       style={{ background: color.bg, color: color.fg }}
     >
       {book.title}
@@ -55,7 +68,6 @@ function CoverThumb({ book, color }: { book: Book; color: SpineColor }) {
 
 export function DetailPanel({ book, index, onClose }: DetailPanelProps) {
   const color = spineColor(index);
-  console.log(book);
   return (
     <AnimatePresence initial={false}>
       {book && (
@@ -71,9 +83,7 @@ export function DetailPanel({ book, index, onClose }: DetailPanelProps) {
             className="mt-3 flex gap-4 rounded-r-2xl bg-moss/12 p-5"
             style={{ borderLeft: `4px solid var(--ink)` }}
           >
-            <div
-              className="h-[104px] w-[72px] shrink-0 overflow-hidden rounded-[2px_5px_5px_2px]"
-            >
+            <div className="h-[104px] shrink-0">
               <CoverThumb book={book} color={color} />
             </div>
 
@@ -85,7 +95,7 @@ export function DetailPanel({ book, index, onClose }: DetailPanelProps) {
                 <p className="mt-0.5 text-xs text-deep">{book.author}</p>
               )}
 
-              {(book.tags.length > 0 || book.moods.length > 0) && (
+              {(book.tags.length > 0 || book.moods.length > 0 || book.genres?.length > 0) && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {book.tags.map((tag) => (
                     <span
@@ -103,6 +113,14 @@ export function DetailPanel({ book, index, onClose }: DetailPanelProps) {
                       {mood}
                     </span>
                   ))}
+                   {book.genres?.map((genre) => (
+                    <span
+                      key={`g-${genre}`}
+                      className="rounded-lg bg-ink px-2 py-0.5 text-[10px] text-paper"
+                    >
+                      {genre}
+                    </span>
+                  ))}
                 </div>
               )}
 
@@ -113,9 +131,7 @@ export function DetailPanel({ book, index, onClose }: DetailPanelProps) {
               )}
 
               {book.review && (
-                <p className="mt-2 border-t border-moss/30 pt-2 text-xs italic leading-relaxed text-ink/90">
-                  “{book.review}”
-                </p>
+                <p className="mt-2 border-t border-moss/30 pt-2 text-xs italic leading-relaxed text-ink/90" dangerouslySetInnerHTML={{ __html: book.review }}></p>
               )}
 
               <p className="mt-1.5 text-[11px] text-deep/80">

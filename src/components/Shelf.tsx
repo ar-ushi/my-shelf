@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 import { useBooks } from "@/hooks/useBooks";
@@ -14,10 +14,24 @@ import type { Book, MonthKey, Source, ViewMode } from "@/lib/types";
 
 type ShelfProps = {
   source?: Source;
+  initialData?: Record<string, Record<MonthKey, Book[]>>;
+  title?: string;
+  subtitle?: string;
+  showSourceBar?: boolean;
+  actionHref?: string;
+  actionLabel?: string;
 };
 
-export function Shelf({ source }: ShelfProps) {
-  const { data, isLoading, error } = useBooks({ source });
+export function Shelf({
+  source,
+  initialData,
+  title = "my shelf",
+  subtitle = "a record of every book you’ve met",
+  showSourceBar = true,
+  actionHref = "/",
+  actionLabel = "← start over",
+}: ShelfProps) {
+  const { data, isLoading, error, patchBook } = useBooks({ source, initialData });
 
   const [viewMode, setViewMode] = useState<ViewMode>("month");
   const [yearSel, setYearSel] = useState<string | null>(null);
@@ -83,6 +97,56 @@ export function Shelf({ source }: ShelfProps) {
       ? `${activeYear} · ${visible.length} book${visible.length === 1 ? "" : "s"}`
       : `${activeMonth} ${activeYear}`;
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDetailMetadata() {
+      if (!selectedBook || selectedBook.metadataChecked) return;
+
+      const hasTaxonomy =
+        selectedBook.tags.length > 0 ||
+        selectedBook.moods.length > 0 ||
+        (selectedBook.genres?.length ?? 0) > 0;
+      const hasPages = selectedBook.pages > 0;
+
+      if (hasTaxonomy || hasPages) {
+        patchBook(selectedBook, { metadataChecked: true });
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/book-metadata", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: selectedBook.title,
+            author: selectedBook.author,
+            pages: selectedBook.pages,
+            genres: selectedBook.genres ?? [],
+            series: selectedBook.series ?? [],
+            cover: selectedBook.cover,
+          }),
+        });
+        if (!res.ok) return;
+
+        const patch = await res.json();
+        if (!cancelled) {
+          patchBook(selectedBook, patch);
+        }
+      } catch {
+        if (!cancelled) {
+          patchBook(selectedBook, { metadataChecked: true });
+        }
+      }
+    }
+
+    void loadDetailMetadata();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [patchBook, selectedBook]);
+
   return (
    <div
   className="min-h-screen w-full"
@@ -98,21 +162,21 @@ export function Shelf({ source }: ShelfProps) {
        <header className="space-y-1">
         <div className="flex items-baseline justify-between">
           <h1 className="font-serif text-4xl font-normal tracking-tight text-ink">
-            my shelf
+            {title}
           </h1>
           <Link
-            href="/"
+            href={actionHref}
             className="text-sm text-deep transition-colors hover:text-ink"
           >
-            ← start over
+            {actionLabel}
           </Link>
         </div>
         <p className="text-sm italic text-rose">
-          a record of every book you’ve met
+          {subtitle}
         </p>
       </header>
 
-      <SourceBar source={source} />
+      {showSourceBar ? <SourceBar source={source} /> : null}
 
       {isLoading ? (
         <p className="py-16 text-center text-sm text-deep">

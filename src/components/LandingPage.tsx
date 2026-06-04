@@ -87,7 +87,7 @@ export function LandingPage() {
             my shelf
           </h1>
           <p className="mt-4 text-lg text-moss/90">
-            hi there — let&rsquo;s build your bookshelf
+            hi there! let&rsquo;s build your bookshelf
           </p>
           <p className="mt-1 text-sm italic text-rose">
             a record of every book you&rsquo;ve met

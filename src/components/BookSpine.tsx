@@ -19,16 +19,19 @@ export function BookSpine({ book, index, flipped, onClick }: BookSpineProps) {
   const color = spineColor(index);
   /** storygraph doesn't expose num of pages -- fixing spine height for now */
   const height = spineHeight(book.pages);
-  const coverWidth = Math.min(176, Math.max(120, Math.round(height * 0.72)));
   const [coverFailed, setCoverFailed] = useState(false);
+  // Width follows the cover's real aspect ratio so it fills the face with no
+  // letterboxing or cropping. Falls back to a typical book ratio until loaded.
+  const [coverAspect, setCoverAspect] = useState(0.66);
   const showCover = book.cover && !coverFailed;
+  const coverWidth = Math.min(200, Math.max(120, Math.round(height * coverAspect)));
 
   const faceBase: React.CSSProperties = {
     position: "absolute",
     inset: 0,
     backfaceVisibility: "hidden",
     WebkitBackfaceVisibility: "hidden",
-    borderRadius: "2px 4px 4px 2px",
+    borderRadius: "2px 0px 0px 2px",
     overflow: "hidden",
   };
 
@@ -86,13 +89,24 @@ export function BookSpine({ book, index, flipped, onClick }: BookSpineProps) {
         </div>
 
         {/* Back: cover image, falling back to a coloured tile with the title */}
-        <div style={{ ...faceBase, transform: "rotateY(180deg)" }}>
+        <div
+          style={{
+            ...faceBase,
+            transform: "rotateY(180deg)",
+          }}
+        >
           {showCover ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={book.cover}
               alt={book.title}
               onError={() => setCoverFailed(true)}
+              onLoad={(e) => {
+                const img = e.currentTarget;
+                if (img.naturalWidth && img.naturalHeight) {
+                  setCoverAspect(img.naturalWidth / img.naturalHeight);
+                }
+              }}
               className="h-full w-full object-cover"
             />
           ) : (

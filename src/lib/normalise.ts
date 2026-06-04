@@ -95,9 +95,8 @@ export function normaliseGoodreadsCSV(rows: Record<string, string>[]): ShelfData
     const title = (row["Title"] ?? "").trim();
     if (!title) continue;
 
-    const readDate = parseDateRead((row["Date Read"] ?? "").trim());
-    // Books with a missing/invalid Date Read still appear, bucketed under today.
-    const bucketDate = readDate ?? new Date();
+    const bucketDate = parseDateRead((row["Date Read"] ?? "").trim());
+    if (!bucketDate) continue;
 
     // Goodreads exports ISBN13/ISBN — build an Open Library cover from it.
     // Moods are intentionally left empty: StoryGraph (the only mood source) has
@@ -115,6 +114,11 @@ export function normaliseGoodreadsCSV(rows: Record<string, string>[]): ShelfData
       moods: [],
       review: (row["My Review"] ?? "").trim(),
       cover: coverFromISBN(isbn),
+      isbn,
+      series: [],
+      genres: [],
+      searchOnImport: !coverFromISBN(isbn),
+      metadataChecked: false,
     };
     addBook(shelf, bucketDate, book);
   }
@@ -145,7 +149,8 @@ export function normaliseStorygraphCSV(rows: Record<string, string>[]): ShelfDat
     const title = field(row, "Title", "title");
     if (!title) continue;
 
-    const bucketDate = parseStorygraphReadDate(row) ?? new Date();
+    const bucketDate = parseStorygraphReadDate(row);
+    if (!bucketDate) continue;
     const author = field(row, "Authors", "Author", "authors", "author");
     const isbn = cleanISBN(field(row, "ISBN/UID", "ISBN", "isbn", "uid"));
 
@@ -160,6 +165,11 @@ export function normaliseStorygraphCSV(rows: Record<string, string>[]): ShelfDat
       moods: splitList(field(row, "Moods", "moods")),
       review: field(row, "Review", "review"),
       cover: coverFromISBN(isbn),
+      isbn,
+      series: [],
+      genres: [],
+      searchOnImport: !coverFromISBN(isbn),
+      metadataChecked: false,
     };
     addBook(shelf, bucketDate, book);
   }
