@@ -95,7 +95,7 @@ export function DetailPanel({ book, index, onClose }: DetailPanelProps) {
                 <p className="mt-0.5 text-xs text-deep">{book.author}</p>
               )}
 
-              {(book.tags.length > 0 || book.moods.length > 0 || book.genres?.length > 0) && (
+              {(book.tags.length > 0 || book.moods.length > 0 || (book.genres && book.genres.length > 0)) && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {book.tags.map((tag) => (
                     <span
